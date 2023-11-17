@@ -2,6 +2,10 @@
 Notifies about new delistings at Binance
 
 # Run
+Rename config.py.sample to config.py
+
+Change config.py values
+
 Sample crontab usage under non-root user "sammy":
 
 ```
