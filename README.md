@@ -1,5 +1,7 @@
 # binance_delisting
-Notifies about new delistings at Binance
+Notifies about new delistings at Binance using Telegram
+
+You can find channel with announcements here: https://t.me/binance_delisting
 
 # Run
 Rename config.py.sample to config.py
