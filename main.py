@@ -1,6 +1,7 @@
 import requests
 import sys
 import pickle
+import sentry_sdk
 from telegram_message import send_telegram_message
 from config import *
 
@@ -71,7 +72,7 @@ if __name__ == '__main__':
             else:
                 print(f"New id {item['id']} saved to {RECORDS_FILENAME}")
 
-    # if records are empty just safe all articles ids
+    # if records are empty just save all articles ids
     if not len(records) and len(articles):
         records = [article['id'] for article in articles]
         try:
