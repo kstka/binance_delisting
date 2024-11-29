@@ -46,6 +46,9 @@ def main():
         # send new articles to telegram
         for article in new_articles:
             send_article_to_telegram(article)
+    # if no new articles found
+    else:
+        logger.info("No new articles found")
 
 def use_sentry():
     try:
