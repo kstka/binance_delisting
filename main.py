@@ -1,12 +1,24 @@
 import requests
+import time
+import cloudscraper
 import sys
 import pickle
 from bs4 import BeautifulSoup
 from loguru import logger
 import json
 import sentry_sdk
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
+from webdriver_manager.chrome import ChromeDriverManager
 from telegram_message import send_telegram_message
 from config import *
+
+
+HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36'
+}
 
 def main():
     # add logger
@@ -87,22 +99,32 @@ def write_codes(codes):
 
 def get_html():
     try:
-        response = requests.get(DELISTING_HTML_URL)
-    except Exception as e:
-        error = f"Get URL error: {e}"
-        logger.error(error)
-        sys.exit(error)
-    else:
-        if response.status_code == 200:
-            html = response.text
-        else:
-            error = f"Get URL error with response code {response.status_code}"
-            logger.error(error)
-            sys.exit(error)
+        chrome_options = Options()
+        chrome_options.add_argument('--headless')
+        chrome_options.add_argument('--disable-gpu')
+        chrome_options.add_argument('--no-sandbox')
+        chrome_options.add_argument(f'user-agent={HEADERS["User-Agent"]}')
+
+        service = Service(ChromeDriverManager().install())
+        driver = webdriver.Chrome(service=service, options=chrome_options)
+
+        logger.info("Opening page with Selenium...")
+        driver.get(DELISTING_HTML_URL)
+
+        time.sleep(5)  # Allow JavaScript to execute
+
+        html = driver.page_source
+        driver.quit()
+        logger.info("Page loaded successfully with Selenium.")
         return html
 
+    except Exception as e:
+        error = f"Selenium error: {e}"
+        logger.error(error)
+        sys.exit(error)
+
 def get_articles(html):
-    # parse html
+    # Parse HTML
     try:
         soup = BeautifulSoup(html, 'html.parser')
     except Exception as e:
@@ -110,43 +132,43 @@ def get_articles(html):
         logger.error(error)
         sys.exit(error)
 
-    # find script tag with data
+    # Find script tag with data
     script_tag = soup.find("script", {"id": "__APP_DATA", "type": "application/json"})
     if not script_tag:
         error = "Script tag not found"
         logger.error(error)
         sys.exit(error)
 
-    # parse JSON data
+    # Parse JSON data
     try:
         data = json.loads(script_tag.string)
+        logger.info("JSON data parsed successfully.")
     except json.JSONDecodeError as e:
         error = f"JSON parsing error: {e}"
         logger.error(error)
         sys.exit(error)
 
-    # get catalogs
-    catalogs = data.get("appState", {}).get("loader", {}).get("dataByRouteId", {}).get("d9b2", {}).get("catalogs", [])
-    if not len(catalogs):
-        error = "Error getting catalogs: catalogs not found"
-        logger.error(error)
-        sys.exit(error)
-
-    # get articles
-    articles = []
-    for catalog in catalogs:
-        if catalog.get("catalogName") == "Delisting":
-            for article in catalog.get("articles", []):
-                code = article.get("code")
-                title = article.get("title")
-                if code and title:
-                    link = f"{BASE_LINK_URL}/en/support/announcement/{code}"
-                    articles.append((code, link, title))
-    if not len(articles):
+    # Get articles from new structure
+    articles_data = data.get("appState", {}).get("loader", {}).get("dataByRouteId", {}).get("d34e", {}).get("catalogDetail", {}).get("articles", [])
+    if not articles_data:
         error = "Error getting articles: articles not found"
         logger.error(error)
         sys.exit(error)
 
+    # Extract articles
+    articles = []
+    for article in articles_data:
+        code = article.get("code")
+        title = article.get("title")
+        if code and title:
+            link = f"{BASE_LINK_URL}/en/support/announcement/{code}"
+            articles.append((code, link, title))
+    if not articles:
+        error = "Error getting articles: no valid articles found"
+        logger.error(error)
+        sys.exit(error)
+
+    logger.info(f"Successfully retrieved {len(articles)} articles.")
     return articles
 
 def get_codes_from_articles(articles):
