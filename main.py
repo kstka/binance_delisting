@@ -1,12 +1,9 @@
-import requests
 import time
-import cloudscraper
 import sys
 import pickle
 from bs4 import BeautifulSoup
 from loguru import logger
 import json
-import sentry_sdk
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
